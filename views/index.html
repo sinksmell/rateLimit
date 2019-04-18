@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <script src="//unpkg.com/vue/dist/vue.js"></script>
+    <!-- 引入组件库 -->
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <script src="https://cdn.bootcss.com/axios/0.18.0/axios.min.js"></script>
+</head>
+<body>
+<div id="app">
+
+    <el-container >
+
+        <el-main>
+            <el-row type="flex" class="row-bg" justify="center">
+                <el-button type="primary" @click="limitTest">提交</el-button>
+            </el-row>
+
+        </el-main>
+
+
+    </el-container>
+
+
+</div>
+
+
+<script>
+    new Vue({
+        el: '#app',
+        data(){
+            return {
+                msg:'',
+                code:'',
+            }
+        },
+        methods:{
+            limitTest(){
+                console.log("Clicked!")
+                const h = this.$createElement;
+                axios.get('/check').then(res=>{
+                    console.log(res.data.msg)
+                    this.msg=res.data.msg
+                    this.code=res.data.code
+                    this.$notify({
+                        title: '响应结果',
+                        message: h('i', { style: 'color: teal'}, this.msg)
+                    });
+                })
+
+            }
+        }
+    })
+</script>
+
+</body>
+</html>
