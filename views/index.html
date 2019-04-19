@@ -37,6 +37,7 @@
             return {
                 msg:'',
                 code:'',
+                time:'',
             }
         },
         methods:{
@@ -47,9 +48,10 @@
                     console.log(res.data.msg)
                     this.msg=res.data.msg
                     this.code=res.data.code
+                    this.time=res.data.time
                     this.$notify({
                         title: '响应结果',
-                        message: h('i', { style: 'color: teal'}, this.msg)
+                        message: h('i', { style: 'color: teal'}, this.time+" "+this.msg)
                     });
                 })
 

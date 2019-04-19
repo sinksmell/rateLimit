@@ -1,8 +1,12 @@
 # rateLimit
 
+用 Redis 实现一个 RateLimit 限制器，可以指定事件、限制时间、限制次数，例如限制 1 分钟内最多 3 次获取短信验证码，或 10 分钟内最多一次重置密码。
+
+
 ### 主要思想
-> 利用Redis中k可以设置key的过期时间,实现时间窗口限流
-> 
+> 1. 类比操作系统中页面替换策略,给定页框大小,FIFO式淘汰掉旧的页面.
+> 2. 利用Redis建立一个容器容量即为限制次数,存储的数据为时间戳,根据时间窗口大小与当前时间及限制次数,淘汰掉旧的元素,添加新元素.
+> 3. 具体数据结构 容器->list,容器若为空,就新建再添加,给容器加上生存时间;若不为空,先清理掉过期元素,再看是否有剩余容量,如果有就添加并重置容器生存时间,没有则不添加.
 
 ### 主要代码实现
 *  使用Beego的过滤器模拟中间件
@@ -39,6 +43,7 @@ func RateLimit(window,maxCnt int) bool{
 	var(
 		conn redis.Conn
 		res interface{}
+		timeStamp int64
 	)
 	// 获取连接
 	conn=POOL.Get()
@@ -47,27 +52,49 @@ func RateLimit(window,maxCnt int) bool{
 	// 判断指定key是否存在
 	res,_=conn.Do("EXISTS",KEY)
 	isExits:=res.(int64)
+	timeStamp=time.Now().Unix()
 	// 如果key 不存在
 	if isExits==0{
-		// 设置key 的值为1 设置过期时间为时间窗口大小
-		conn.Do("SET",KEY,1)
+		// 向列表中添加时间戳 设置过期时间为时间窗口大小
+		conn.Do("LPUSH",KEY,timeStamp)
 		conn.Do("EXPIRE",KEY,window)
 		// 可以继续放行请求
 		return true
 	}
 
-	// 获取当前值
-	res,_=conn.Do("GET",KEY)
+	// key存在 获取当前list长度
+	res,_=conn.Do("LLEN",KEY)
 	// 转为int
-	num:=res.([]byte)
-	curr,_:=strconv.Atoi(string(num))
-	if curr+1>maxCnt{
-		// 次数达到上限
-		return false
+	lens :=res.(int64)
+	end:=0
+	// 获取list
+	list,_:=redis.Values(conn.Do("lrange",KEY,0, lens))
+	// 遍历list找到最后一个没过期的记录
+	for i := int(lens -1);i>=0 ;i--  {
+		str:=string(list[i].([]byte))
+		oldStamp,_:=strconv.ParseInt(str,10,64)
+		if timeStamp-oldStamp<int64(window){
+			end=i
+			break
+		}
 	}
-	// 更新值
-	conn.Do("INCR",KEY)
-	return true
+	
+
+	// 删除过期时间戳记录
+	conn.Do("LTRIM",KEY,0,end)
+
+	// 判断记录是否达到限制
+	if end+1<maxCnt{
+		// beego.BeeLogger.Debug("添加记录")
+		// 向列表中添加时间戳
+		// 向列表中添加时间戳 设置过期时间为时间窗口大小
+		conn.Do("LPUSH",KEY,timeStamp)
+		conn.Do("EXPIRE",KEY,window)
+		// 放行请求
+		return true
+	}
+	// 不放行
+	return false
 }
 
 // filters/limit.go

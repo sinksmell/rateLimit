@@ -12,6 +12,7 @@ var (
 type Response struct {
 	Code int    `json:"code"`
 	Msg  string `json:"msg"`
+	Time string `json:"time"`
 }
 
 // 从 conf/app.conf 文件中读取配置信息
